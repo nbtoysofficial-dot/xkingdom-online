@@ -1,7 +1,7 @@
 // src/components/OnlineGame.jsx
-// X Kingdom — ONLINE full engine (v0.3-net, lean-state)
+// X Kingdom — ONLINE full engine (v0.3-net, lean-state, +cardart)
 // เก็บใน room.state แค่ code+สถานะต่อใบ แล้ว lookup รายละเอียดจากตาราง CARD
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useOnlineGame } from "../hooks/useOnlineGame";
 
 /* ============== ข้อมูลการ์ดไฟจริง (50 ใบ) ============== */
@@ -28,6 +28,8 @@ const FIRE = [
   { code:"A6",  name:"Tactical Advance",  r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
 ];
 const CARD = {}; FIRE.forEach(c=>{ CARD[c.code]=c; });
+const ART_EL = "fire"; // เด็คปัจจุบันเป็นไฟ (ตอนเพิ่มเลือกธาตุค่อยทำ per-card)
+const artSrc = (art)=> art ? `/cards/${ART_EL}/${art}.jpg` : "";
 const PHASES = ["Start","Draw","Mana","Main","End"];
 const PH = { Start:"เริ่มเทิร์น", Draw:"จั่ว", Mana:"วางมานา", Main:"เมนเฟส", End:"จบเทิร์น" };
 const other = (s)=> s==="A"?"B":"A";
@@ -138,24 +140,89 @@ function attackKingdom(ns,selUid){
 }
 
 /* ============== คอมโพเนนต์ ============== */
-export default function OnlineGame(){
+/* ============== บอท (ระดับ B: กลยุทธ์พื้นฐาน) ============== */
+function bestHeroToPlay(hand, avail){
+  let best=-1, bestCost=-1;
+  hand.forEach((c,i)=>{ const b=CARD[c.code]; if(b && b.type==="hero" && b.cost<=avail && b.cost>bestCost){ bestCost=b.cost; best=i; } });
+  return best;
+}
+function pickAttack(ns){
+  const A=ns.players.A, B=ns.players.B;
+  const attackers=B.front.filter(h=>!h.rested);
+  if(attackers.length===0) return null;
+  // 1) หาการตีฮีโร่หน้าที่ชนะ/เสมอ (เคลียร์บล็อค)
+  for(const at of attackers){
+    const atk=aOf(at);
+    let bestIdx=-1,bestTa=999;
+    A.front.forEach((t,idx)=>{ const ta=aOf(t); if(atk>=ta && ta<bestTa){bestTa=ta;bestIdx=idx;} });
+    if(bestIdx>=0) return { uid:at.uid, line:"front", idx:bestIdx };
+  }
+  // 2) ไม่มีเทรดคุ้ม → บุก Kingdom ด้วยตัวแรงสุด
+  const strongest=attackers.slice().sort((a,b)=>aOf(b)-aOf(a))[0];
+  return { uid:strongest.uid, kingdom:true };
+}
+function botAct(s){
+  const ns=structuredClone(s);
+  if(ns.phaseIdx<3){ advance(ns); return ns; }        // Start→Draw→Mana→Main
+  if(ns.phaseIdx===3){                                 // Main
+    const B=ns.players.B;
+    const avail=B.mana.filter(m=>!m.rested).length;
+    const hi=bestHeroToPlay(B.hand, avail);
+    if(hi>=0){ playHero(ns,hi,"front"); return ns; }   // ลงฮีโร่แพงสุดที่จ่ายได้
+    const plan=pickAttack(ns);
+    if(plan){ if(plan.kingdom) attackKingdom(ns,plan.uid); else attackHero(ns,plan.uid,plan.line,plan.idx); return ns; }
+    advance(ns); return ns;                             // ไม่มีอะไรทำ → ไป End
+  }
+  advance(ns); return ns;                               // End → สลับตากลับผู้เล่น
+}
+
+/* ============== เมนูเลือกโหมด (default export) ============== */
+export default function Root(){
+  const [mode,setMode]=useState(null);
+  if(mode==="bot") return <LocalGame onExit={()=>setMode(null)}/>;
+  if(mode==="online") return <OnlineFlow onExit={()=>setMode(null)}/>;
+  return (
+    <Center>
+      <div style={{fontSize:48,color:"#8E2B2B"}}>♛</div>
+      <h1 style={{letterSpacing:3,margin:0}}>X KINGDOM</h1>
+      <p style={{color:"#8A8172",margin:"0 0 6px",fontStyle:"italic"}}>เกมการ์ดต่อสู้</p>
+      <button style={B1} onClick={()=>setMode("bot")}>⚔️ ฝึกกับบอท</button>
+      <button style={B2} onClick={()=>setMode("online")}>👥 เล่นกับเพื่อน</button>
+    </Center>
+  );
+}
+
+/* ============== โหมดฝึกกับบอท (เล่นในเครื่อง ไม่แตะเซิร์ฟเวอร์) ============== */
+function LocalGame({onExit}){
+  const [s,setS]=useState(()=>initialState());
+  const apply=(patch)=> setS(patch.state);
+  const myTurn = s.active==="A" && !s.winner;
+  useEffect(()=>{
+    if(s.winner || s.active!=="B") return;
+    const t=setTimeout(()=>{ setS(cur=> (cur.active==="B" && !cur.winner) ? botAct(cur) : cur); }, 620);
+    return ()=>clearTimeout(t);
+  }, [s]);
+  return <GameView s={s} seat="A" myTurn={myTurn} meName="คุณ" opName="บอท" code={null} onLeave={onExit} apply={apply}/>;
+}
+
+/* ============== โหมดเล่นกับเพื่อน (ออนไลน์ Supabase) ============== */
+function OnlineFlow({onExit}){
   const { ready, seat, room, error, myTurn, createRoom, joinRoom, commit, leave } = useOnlineGame();
   const [name,setName]=useState(""); const [joinCode,setJoinCode]=useState("");
-  const [sel,setSel]=useState(null); const [pending,setPending]=useState(null);
 
   if(!ready) return <Center>กำลังเชื่อมต่อ...</Center>;
 
   if(!room) return (
     <Center>
       <div style={{fontSize:44,color:"#8E2B2B"}}>♛</div>
-      <h1 style={{letterSpacing:3,margin:0}}>X KINGDOM</h1>
-      <p style={{color:"#8A8172",margin:0,fontStyle:"italic"}}>Online · เต็มระบบ · เล่นกับเพื่อน</p>
+      <h1 style={{letterSpacing:3,margin:0}}>เล่นกับเพื่อน</h1>
       <input style={I} placeholder="ชื่อของคุณ" value={name} onChange={e=>setName(e.target.value)}/>
       <button style={B1} onClick={()=>createRoom(name, initialState())}>สร้างห้องใหม่</button>
       <div style={{color:"#6B6355",fontSize:12}}>— หรือ —</div>
       <input style={I} placeholder="รหัสห้อง (4 ตัว)" value={joinCode} maxLength={4} onChange={e=>setJoinCode(e.target.value.toUpperCase())}/>
       <button style={B2} onClick={()=>joinRoom(joinCode,name)}>เข้าห้อง</button>
       {error && <p style={{color:"#E0894F",fontSize:13,maxWidth:300}}>ผิดพลาด: {error}</p>}
+      <button style={{...GH,marginTop:8}} onClick={onExit}>← กลับเมนูหลัก</button>
     </Center>
   );
 
@@ -170,20 +237,28 @@ export default function OnlineGame(){
 
   const s=room.state;
   if(!s || !s.players){ return <Center>กำลังโหลดกระดาน...<button style={GH} onClick={leave}>ออก</button></Center>; }
-  if(room.status==="over"||s.winner){
-    const iWon=(s.winner||room.winner)===seat;
-    return (<Center><div style={{fontSize:44,color:iWon?"#C8A24B":"#8A8172"}}>♛</div><h1>{iWon?"คุณชนะ!":"คุณแพ้"}</h1><button style={B1} onClick={leave}>กลับเมนู</button></Center>);
+  return <GameView s={s} seat={seat} myTurn={myTurn}
+    meName={seat==="A"?room.player_a_name:room.player_b_name}
+    opName={seat==="A"?room.player_b_name:room.player_a_name}
+    code={room.code} onLeave={leave} apply={commit}/>;
+}
+
+/* ============== กระดานเกม (ใช้ร่วมทั้ง 2 โหมด) ============== */
+function GameView({s, seat, myTurn, meName, opName, code, onLeave, apply}){
+  const [sel,setSel]=useState(null); const [pending,setPending]=useState(null);
+
+  if(s.winner){
+    const iWon=s.winner===seat;
+    return (<Center><div style={{fontSize:44,color:iWon?"#C8A24B":"#8A8172"}}>♛</div><h1>{iWon?"คุณชนะ!":"คุณแพ้"}</h1><button style={B1} onClick={onLeave}>กลับเมนู</button></Center>);
   }
 
   const meP=s.players[seat], opP=s.players[other(seat)];
   const phase=PHASES[s.phaseIdx];
-  const meName=seat==="A"?room.player_a_name:room.player_b_name;
-  const opName=seat==="A"?room.player_b_name:room.player_a_name;
   const activeMana=meP.mana.filter(m=>!m.rested).length;
   const isMain=myTurn&&phase==="Main";
   const firstTurnLock=s.turnNo===0&&s.active===s.firstPlayer;
 
-  const act=(mut)=>{ const ns=structuredClone(s); mut(ns); const patch={state:ns,turn:ns.active}; if(ns.winner){patch.status="over";patch.winner=ns.winner;} commit(patch); };
+  const act=(mut)=>{ const ns=structuredClone(s); mut(ns); const patch={state:ns,turn:ns.active}; if(ns.winner){patch.status="over";patch.winner=ns.winner;} apply(patch); };
   const canCast=(base)=> isMain && activeMana>=base.cost;
 
   const doNext=()=>{ if(!myTurn)return; setSel(null); setPending(null); act(ns=>advance(ns)); };
@@ -208,9 +283,9 @@ export default function OnlineGame(){
   return (
     <div style={{maxWidth:480,margin:"0 auto",color:"#E8DCC0",fontFamily:"Georgia,serif",padding:8,display:"flex",flexDirection:"column",gap:6}}>
       <div style={HUD}>
-        <span>ห้อง <b>{room.code}</b></span>
+        <span>{code?<>ห้อง <b>{code}</b></>:<b>ฝึกกับบอท</b>}</span>
         <b style={{color:myTurn?"#7ED9A0":"#C6472F"}}>{myTurn?`● ตาคุณ · ${PH[phase]}`:`○ ตา ${opName||"คู่แข่ง"}`}</b>
-        <button style={GH} onClick={leave}>ออก</button>
+        <button style={GH} onClick={onLeave}>ออก</button>
       </div>
 
       <Board p={opP} isMe={false} name={opName||"คู่แข่ง"} sel={sel} pending={pending} onHero={onHero} onKingdom={onKingdom}/>
@@ -221,7 +296,7 @@ export default function OnlineGame(){
             <span style={{fontSize:12}}>Cost ว่าง <b style={{color:"#C8A24B"}}>{activeMana}</b>/{meP.mana.length}</span>
             <button style={NEXT} onClick={doNext}>{s.phaseIdx<4?`ไป ${PH[PHASES[s.phaseIdx+1]]} →`:"จบเทิร์น ⟳"}</button>
           </div>
-        ) : <span style={{fontSize:12,color:"#8A8172"}}>กำลังรอ {opName||"คู่แข่ง"} เล่น...</span>}
+        ) : <span style={{fontSize:12,color:"#8A8172"}}>{opName||"คู่แข่ง"} กำลังเล่น...</span>}
         {pending && <div style={{fontSize:11,color:"#C8A24B",marginTop:4}}>{pending.label} — แตะ Hero เป้าหมาย <button style={MINI} onClick={()=>setPending(null)}>ยกเลิก</button></div>}
         {sel && !pending && <div style={{fontSize:11,color:"#7ED9A0",marginTop:4}}>เลือกเป้าโจมตี: Hero ตรงข้าม / Kingdom <button style={MINI} onClick={()=>setSel(null)}>ยกเลิก</button></div>}
         {firstTurnLock && myTurn && <div style={{fontSize:10,color:"#8A8172",marginTop:2}}>* เทิร์นแรก โจมตีไม่ได้</div>}
@@ -268,20 +343,21 @@ function Line({title,arr,isMe,back,sel,pending,onHero,isMain,onSkill,onSwitch}){
   return (
     <div style={{display:"flex",gap:5,alignItems:"center"}}>
       <span style={{fontSize:9,color:"#6B6355",width:34,flexShrink:0}}>{title}</span>
-      <div style={{display:"flex",gap:5,overflowX:"auto",minHeight:52,flex:1,padding:2,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:5,overflowX:"auto",minHeight:116,flex:1,padding:2,flexWrap:"wrap"}}>
         {arr.length===0 && <span style={{color:"#3A3550",fontSize:11}}>—</span>}
-        {arr.map((h,i)=>{ const base=CARD[h.code]||{};
+        {arr.map((h,i)=>{ const base=CARD[h.code]||{}; const buffed=(h.tAtk||h.tDef);
+          const fb=(<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",padding:2}}><div style={{fontSize:9,fontWeight:700,textAlign:"center",lineHeight:1.05}}>{base.name}</div></div>);
           return (
           <div key={h.uid} style={{display:"flex",flexDirection:"column",gap:2}}>
             <button onClick={()=>onHero(isMe,back?"back":"front",h,i)}
-              style={{...HERO, transform:h.rested?"rotate(90deg) scale(.8)":"none", outline:sel===h.uid?"2px solid #C8A24B":"none"}}>
-              <div style={{fontSize:9,fontWeight:700,maxWidth:66,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{base.name}</div>
-              <div style={{display:"flex",gap:3,fontSize:10}}>
-                <span style={{color:"#E0894F"}}>⚔{(base.atk||0)+(h.tAtk||0)}{(h.tAtk||h.tDef)?"*":""}</span>
+              style={{...HERO, transform:h.rested?"rotate(90deg) scale(.82)":"none", outline:sel===h.uid?"2px solid #C8A24B":"none"}}>
+              <Art art={base.art} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+              <div style={{position:"absolute",top:0,left:0,right:0,background:"linear-gradient(180deg,rgba(15,11,24,.9),transparent)",fontSize:8,fontWeight:700,padding:"2px 3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 2px #000"}}>{base.name}</div>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,display:"flex",justifyContent:"space-around",background:"rgba(15,11,24,.92)",fontSize:10,padding:"1px 0"}}>
+                <span style={{color:"#E0894F"}}>⚔{(base.atk||0)+(h.tAtk||0)}{buffed?"*":""}</span>
                 <span style={{color:"#6FA8DC"}}>🛡{(base.def||0)+(h.tDef||0)}</span>
                 <span style={{color:"#C8A24B"}}>✦{base.cri}</span>
               </div>
-              <div style={{fontSize:8,color:"#9A9080"}}>L{base.lvl}</div>
             </button>
             {isMe && isMain && (
               <div style={{display:"flex",gap:2}}>
@@ -297,19 +373,32 @@ function Line({title,arr,isMe,back,sel,pending,onHero,isMain,onSkill,onSwitch}){
 }
 function HandCard({base,playable,onFront,onBack,onAction}){
   const isHero=base.type==="hero";
-  return (
-    <div style={{...HC, opacity:playable?1:.5}}>
+  const fb=(
+    <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",padding:5,gap:2}}>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:9}}>
         <span style={{color:"#C8A24B",fontWeight:700}}>C{base.cost}</span><span style={{color:"#9A9080"}}>{isHero?`L${base.lvl}`:base.type==="item"?"Item":"Act"}</span>
       </div>
-      <div style={{fontSize:9,fontWeight:700,minHeight:22,lineHeight:1.1}}>{base.name}</div>
+      <div style={{fontSize:9,fontWeight:700,lineHeight:1.1}}>{base.name}</div>
       {isHero && <div style={{display:"flex",gap:3,fontSize:9}}><span style={{color:"#E0894F"}}>⚔{base.atk}</span><span style={{color:"#6FA8DC"}}>🛡{base.def}</span><span style={{color:"#C8A24B"}}>✦{base.cri}</span></div>}
-      <div style={{fontSize:7,color:"#8A8172",minHeight:20,lineHeight:1.15,overflow:"hidden"}}>{base.text}</div>
-      {playable && (isHero
-        ? <div style={{display:"flex",gap:2}}><button style={PB} onClick={onFront}>Front</button><button style={PB} onClick={onBack}>Back</button></div>
-        : <button style={PB} onClick={onAction}>เล่น</button>)}
+      <div style={{fontSize:7,color:"#8A8172",lineHeight:1.15,overflow:"hidden",flex:1}}>{base.text}</div>
     </div>
   );
+  return (
+    <div style={{...HC, opacity:playable?1:.55}}>
+      <div style={{position:"relative",width:"100%",height:120,borderRadius:5,overflow:"hidden",background:"#14101f"}}>
+        <Art art={base.art} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+        <div style={{position:"absolute",top:2,left:2,background:"rgba(15,11,24,.85)",color:"#C8A24B",fontWeight:800,fontSize:10,borderRadius:4,padding:"1px 5px"}}>C{base.cost}</div>
+      </div>
+      {playable && (isHero
+        ? <div style={{display:"flex",gap:2,marginTop:3}}><button style={PB} onClick={onFront}>Front</button><button style={PB} onClick={onBack}>Back</button></div>
+        : <button style={{...PB,marginTop:3}} onClick={onAction}>เล่น</button>)}
+    </div>
+  );
+}
+function Art({art,imgStyle,fallback}){
+  const [broken,setBroken]=useState(false);
+  if(broken||!art) return fallback;
+  return <img src={artSrc(art)} alt="" onError={()=>setBroken(true)} style={imgStyle}/>;
 }
 const Center=({children})=>(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,color:"#E8DCC0",fontFamily:"Georgia,serif",background:"#0F0B18",textAlign:"center",padding:16}}>{children}</div>);
 
@@ -324,10 +413,10 @@ const BME={background:"linear-gradient(0deg,rgba(62,142,126,.12),transparent)"};
 const KING={display:"flex",flexDirection:"column",gap:3,alignItems:"flex-start",background:"transparent",border:"none",color:"#E8DCC0",fontFamily:"inherit",padding:0};
 const BAR={background:"rgba(0,0,0,.25)",borderRadius:6,padding:"6px 8px",border:"1px solid #2A2440"};
 const NEXT={background:"linear-gradient(180deg,#8E2B2B,#6A1F1F)",color:"#E8DCC0",border:"none",padding:"8px 14px",fontSize:13,fontWeight:700,borderRadius:5,cursor:"pointer",fontFamily:"inherit"};
-const HERO={minWidth:74,background:"rgba(20,16,32,.92)",border:"1.5px solid #C6472F",borderRadius:5,padding:"5px 6px",color:"#E8DCC0",fontFamily:"inherit",display:"flex",flexDirection:"column",gap:1,alignItems:"flex-start"};
+const HERO={position:"relative",width:80,height:108,background:"rgba(20,16,32,.92)",border:"1.5px solid #C6472F",borderRadius:5,padding:0,overflow:"hidden",color:"#E8DCC0",fontFamily:"inherit",flexShrink:0};
 const SW={flex:1,background:"#2E5A7A",color:"#E8DCC0",border:"none",borderRadius:3,padding:"2px",fontSize:8,cursor:"pointer",fontFamily:"inherit",fontWeight:700};
 const SK={flex:1,background:"#7A2E8A",color:"#E8DCC0",border:"none",borderRadius:3,padding:"2px",fontSize:8,cursor:"pointer",fontFamily:"inherit",fontWeight:700};
-const HC={minWidth:78,maxWidth:78,background:"rgba(20,16,32,.95)",border:"1px solid #C8A24B",borderRadius:6,padding:5,display:"flex",flexDirection:"column",gap:2,flexShrink:0};
+const HC={minWidth:94,maxWidth:94,background:"rgba(20,16,32,.95)",border:"1px solid #C8A24B",borderRadius:6,padding:5,display:"flex",flexDirection:"column",gap:2,flexShrink:0};
 const PB={flex:1,background:"#3E8E7E",color:"#0F0B18",border:"none",borderRadius:3,padding:"3px",fontSize:9,cursor:"pointer",fontFamily:"inherit",fontWeight:800};
 const MINI={background:"transparent",border:"1px solid #8A8172",color:"#B7AE9C",padding:"1px 8px",borderRadius:4,cursor:"pointer",fontSize:10,fontFamily:"inherit",marginLeft:6};
 const LOG={background:"rgba(0,0,0,.3)",borderRadius:6,padding:"7px 9px",fontSize:11,maxHeight:80,overflowY:"auto",lineHeight:1.5,border:"1px solid #2A2440",fontFamily:"system-ui,sans-serif"};
