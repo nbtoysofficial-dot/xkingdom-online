@@ -1,7 +1,7 @@
 // src/components/OnlineGame.jsx
 // X Kingdom — ONLINE full engine (v0.3-net, lean-state, +cardart)
 // เก็บใน room.state แค่ code+สถานะต่อใบ แล้ว lookup รายละเอียดจากตาราง CARD
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useOnlineGame } from "../hooks/useOnlineGame";
 
 /* ============== ข้อมูลการ์ดไฟจริง (50 ใบ) ============== */
@@ -27,9 +27,61 @@ const FIRE = [
   { code:"A5",  name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
   { code:"A6",  name:"Tactical Advance",  r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
 ];
-const CARD = {}; FIRE.forEach(c=>{ CARD[c.code]=c; });
-const ART_EL = "fire"; // เด็คปัจจุบันเป็นไฟ (ตอนเพิ่มเลือกธาตุค่อยทำ per-card)
-const artSrc = (art)=> art ? `/cards/${ART_EL}/${art}.jpg` : "";
+/* ============== ลม (Wind) — เน้นเร็ว/ATK สูง DEF ต่ำ/ข้ามไลน์ ============== */
+const WIND = [
+  { code:"W1a", name:"Chanikarn, the Wind Pupil", r:"N", type:"hero", lvl:1, cost:2, atk:2, def:0, cri:1, count:4, art:"lv1-1", text:"Trigger: จั่ว 1 ใบ", eff:{ trigger:"draw" } },
+  { code:"W1b", name:"นักลอบสังหารลม", r:"N", type:"hero", lvl:1, cost:1, atk:1, def:0, cri:1, count:4, art:"lv1-2", text:"[H] โจมตี Seal ใน Df Line (แมนนวล)", eff:{ manual:true } },
+  { code:"W1c", name:"ผู้รู้สายลม", r:"N", type:"hero", lvl:1, cost:1, atk:0, def:1, cri:1, count:4, art:"lv1-3", text:"Skill(3): เราจั่ว 1 (แมนนวล)", eff:{ manual:true } },
+  { code:"W1d", name:"นักรบสายลม", r:"U", type:"hero", lvl:1, cost:2, atk:2, def:0, cri:1, count:4, art:"lv1-4", text:"—" },
+  { code:"W1e", name:"จอมโจรลม", r:"R", type:"hero", lvl:1, cost:3, atk:2, def:0, cri:1, count:4, art:"lv1-5", text:"[H] โจมตี Hero Lv1 ใน Df Line (แมนนวล)", eff:{ manual:true } },
+  { code:"W2a", name:"อัศวินพายุ", r:"N", type:"hero", lvl:2, cost:4, atk:4, def:2, cri:1, count:2, art:"lv2-1", text:"ยกเลิกสโตน (แมนนวล)", eff:{ manual:true } },
+  { code:"W2b", name:"ทหารลม", r:"N", type:"hero", lvl:2, cost:4, atk:2, def:3, cri:1, count:2, art:"lv2-2", text:"—" },
+  { code:"W2c", name:"ผู้กองลม", r:"U", type:"hero", lvl:2, cost:4, atk:3, def:2, cri:1, count:2, art:"lv2-3", text:"SkillReact (แมนนวล)", eff:{ manual:true } },
+  { code:"W2d", name:"จอมพลลม", r:"R", type:"hero", lvl:2, cost:5, atk:1, def:4, cri:1, count:2, art:"lv2-4", text:"[H] At+1 ตาม Hero Lv1 (แมนนวล)", eff:{ manual:true } },
+  { code:"W3a", name:"ราชาพายุ", r:"N", type:"hero", lvl:3, cost:6, atk:4, def:3, cri:1, count:2, art:"lv3-1", text:"Skill(1): ดึง Hero ใน Df Line ศัตรูขึ้นมา (แมนนวล)", eff:{ manual:true } },
+  { code:"W3b", name:"เทพลม", r:"U", type:"hero", lvl:3, cost:6, atk:4, def:4, cri:1, count:2, art:"lv3-2", text:"[H] โจมตีดิน At+2 (แมนนวล)", eff:{ manual:true } },
+  { code:"W3c", name:"จอมมารลม", r:"R", type:"hero", lvl:3, cost:7, atk:5, def:4, cri:1, count:2, art:"lv3-3", text:"Hero ที่ต่อสู้กับตัวนี้ Df-2 (แมนนวล)", eff:{ manual:true } },
+  { code:"WI1", name:"ตราลม", r:"U", type:"item", cost:3, count:2, art:"item-1", text:"Wind Mastery (แมนนวล)", eff:{ manual:true } },
+  { code:"WI2", name:"ดาบลม", r:"U", type:"item", cost:2, count:2, art:"item-2", text:"ลมที่ติด At+1 โจมตี 2 ครั้ง (แมนนวล)", eff:{ manual:true } },
+  { code:"WA1", name:"ลมกรรโชก", r:"U", type:"action", cost:1, count:2, art:"act-1", text:"Hero 1 ตีข้ามไลน์จนจบเทิร์น (แมนนวล)", eff:{ manual:true } },
+  { code:"WA2", name:"สายลมหนุน", r:"U", type:"action", cost:2, count:2, art:"act-2", text:"ทิ้ง 2 จั่ว 3", eff:{ action:"discardDraw" } },
+  { code:"WA3", name:"เปลี่ยนทิศ", r:"U", type:"action", cost:3, count:2, art:"act-3", text:"Hero 1 เปลี่ยนไลน์ (แมนนวล)", eff:{ manual:true } },
+  { code:"WA4", name:"ฟื้นสายลม", r:"R", type:"action", cost:3, count:2, art:"act-4", text:"ฮีล (แมนนวล)", eff:{ manual:true } },
+  { code:"WA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
+  { code:"WA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
+];
+/* ============== ดิน (Earth) — เน้น DEF สูง/สโตน/ทนทาน ============== */
+const EARTH = [
+  { code:"E1a", name:"Piboon, the Templar", r:"N", type:"hero", lvl:1, cost:2, atk:2, def:2, cri:1, count:4, art:"lv1-1", text:"Trigger: จั่ว 1 ใบ", eff:{ trigger:"draw" } },
+  { code:"E1b", name:"ทหารหิน", r:"N", type:"hero", lvl:1, cost:1, atk:1, def:1, cri:1, count:4, art:"lv1-2", text:"Skill(3): ติดสโตน (แมนนวล)", eff:{ manual:true } },
+  { code:"E1c", name:"ผู้พิทักษ์ดิน", r:"N", type:"hero", lvl:1, cost:1, atk:1, def:2, cri:0, count:4, art:"lv1-3", text:"ซินเนอร์ยีฟรีส (แมนนวล)", eff:{ manual:true } },
+  { code:"E1d", name:"นักรบดิน", r:"U", type:"hero", lvl:1, cost:2, atk:2, def:2, cri:1, count:4, art:"lv1-4", text:"—" },
+  { code:"E1e", name:"หมอดิน", r:"R", type:"hero", lvl:1, cost:3, atk:1, def:1, cri:1, count:4, art:"lv1-5", text:"เข้ามา: ศัตรูติดสโตน (แมนนวล)", eff:{ manual:true } },
+  { code:"E2a", name:"Asira, the Protector", r:"N", type:"hero", lvl:2, cost:4, atk:2, def:5, cri:1, count:2, art:"lv2-1", text:"TOUGHNESS เมื่อมี Hero ติดสโตน (แมนนวล)", eff:{ manual:true } },
+  { code:"E2b", name:"ผู้รักษาหิน", r:"N", type:"hero", lvl:2, cost:4, atk:3, def:4, cri:1, count:2, art:"lv2-2", text:"Skill(1): รักษาสโตน แล้วจั่ว 1 (แมนนวล)", eff:{ manual:true } },
+  { code:"E2c", name:"องครักษ์ดิน", r:"U", type:"hero", lvl:2, cost:4, atk:2, def:3, cri:1, count:2, art:"lv2-3", text:"[H] โจมตีจาก Df Line ได้ (แมนนวล)", eff:{ manual:true } },
+  { code:"E2d", name:"จอมพลหิน", r:"R", type:"hero", lvl:2, cost:5, atk:1, def:5, cri:1, count:2, art:"lv2-4", text:"เมื่อมี Hero ติดสโตน ใช้ Df สู้ (แมนนวล)", eff:{ manual:true } },
+  { code:"E3a", name:"Apiwat, the Summoner", r:"U", type:"hero", lvl:3, cost:6, atk:4, def:5, cri:1, count:2, art:"lv3-1", text:"Skill(3)(At): ทำลาย Hero Lv<3", eff:{ skill:{ cost:3, need:"enemyLo", kind:"destroy", line:"front", label:"ทำลาย Hero Lv<3" } } },
+  { code:"E3b", name:"มังกรหิน", r:"N", type:"hero", lvl:3, cost:6, atk:3, def:6, cri:1, count:2, art:"lv3-2", text:"โจมตีน้ำ At+2 Df+1 (แมนนวล)", eff:{ manual:true } },
+  { code:"E3c", name:"ราชันหิน", r:"R", type:"hero", lvl:3, cost:7, atk:2, def:6, cri:1, count:2, art:"lv3-3", text:"SkillReact: ใช้ Df สู้ (แมนนวล)", eff:{ manual:true } },
+  { code:"EI1", name:"ตราดิน", r:"U", type:"item", cost:3, count:2, art:"item-1", text:"Earth Mastery (แมนนวล)", eff:{ manual:true } },
+  { code:"EI2", name:"โล่ดิน", r:"U", type:"item", cost:2, count:2, art:"item-2", text:"ดินที่ติด Df+1 ใช้ Df (แมนนวล)", eff:{ manual:true } },
+  { code:"EA1", name:"สโตนไบต์", r:"U", type:"action", cost:1, count:2, art:"act-1", text:"Hero 1 ติดสโตน (แมนนวล)", eff:{ manual:true } },
+  { code:"EA2", name:"บดขยี้", r:"U", type:"action", cost:2, count:2, art:"act-2", text:"ติดสโตน ถ้า Lv≤2 จั่ว 1 (แมนนวล)", eff:{ manual:true } },
+  { code:"EA3", name:"เสริมพลังดิน", r:"U", type:"action", cost:3, count:2, art:"act-3", text:"สร้าง 1 Cost สภาพ Rest (แมนนวล)", eff:{ manual:true } },
+  { code:"EA4", name:"ฟื้นปฐพี", r:"R", type:"action", cost:3, count:2, art:"act-4", text:"ฮีล (แมนนวล)", eff:{ manual:true } },
+  { code:"EA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
+  { code:"EA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
+];
+FIRE.forEach(c=>c.el="fire"); WIND.forEach(c=>c.el="wind"); EARTH.forEach(c=>c.el="earth");
+const ELEMENTS = {
+  fire:  { name:"ไฟ",  emoji:"🔥", color:"#C6472F", cards:FIRE },
+  wind:  { name:"ลม",  emoji:"🌪️", color:"#3E8E7E", cards:WIND },
+  earth: { name:"ดิน", emoji:"⛰️", color:"#B08D57", cards:EARTH },
+};
+const ELLIST = ["fire","wind","earth"];
+const CARD = {}; [...FIRE,...WIND,...EARTH].forEach(c=>{ CARD[c.code]=c; });
+const artSrc = (base)=> base && base.art && base.el ? `/cards/${base.el}/${base.art}.jpg` : "";
 const PHASES = ["Start","Draw","Mana","Main","End"];
 const PH = { Start:"เริ่มเทิร์น", Draw:"จั่ว", Mana:"วางมานา", Main:"เมนเฟส", End:"จบเทิร์น" };
 const other = (s)=> s==="A"?"B":"A";
@@ -41,16 +93,17 @@ const aOf = (h)=> (bc(h).atk||0)+(h.tAtk||0);
 const dOf = (h)=> (bc(h).def||0)+(h.tDef||0);
 
 /* ============== สร้างสถานะเริ่มต้น (เก็บแค่ code+uid) ============== */
-function buildDeck(seed){
-  const d=[]; for(const c of FIRE) for(let i=0;i<c.count;i++) d.push({ code:c.code, uid:`${seed}${d.length}` });
+function buildDeck(cards,seed){
+  const d=[]; for(const c of cards) for(let i=0;i<c.count;i++) d.push({ code:c.code, uid:`${seed}${d.length}` });
   return shuffle(d);
 }
-function newPlayer(seed){
-  const deck=buildDeck(seed); const hand=deck.splice(0,7);
-  return { kingdom:{ shields:3 }, deck, hand, mana:[], front:[], back:[], grave:[] };
+function newPlayer(el,seed){
+  const cards=(ELEMENTS[el]||ELEMENTS.fire).cards;
+  const deck=buildDeck(cards,seed); const hand=deck.splice(0,7);
+  return { el, kingdom:{ shields:3 }, deck, hand, mana:[], front:[], back:[], grave:[] };
 }
-export function initialState(){
-  return { players:{ A:newPlayer("a"), B:newPlayer("b") }, active:"A", phaseIdx:0, turnNo:0, firstPlayer:"A",
+export function initialState(aEl="fire",bEl="fire"){
+  return { players:{ A:newPlayer(aEl,"a"), B:newPlayer(bEl,"b") }, active:"A", phaseIdx:0, turnNo:0, firstPlayer:"A",
     winner:null, log:["เริ่มเกม — ตาผู้เล่น A (เทิร์นแรกโจมตีไม่ได้)"] };
 }
 
@@ -179,7 +232,11 @@ function botAct(s){
 /* ============== เมนูเลือกโหมด (default export) ============== */
 export default function Root(){
   const [mode,setMode]=useState(null);
-  if(mode==="bot") return <LocalGame onExit={()=>setMode(null)}/>;
+  const [botEl,setBotEl]=useState(null);
+  if(mode==="bot"){
+    if(!botEl) return <ElementPicker title="เลือกธาตุของคุณ" sub="ฝึกกับบอท" onPick={setBotEl} onBack={()=>setMode(null)}/>;
+    return <LocalGame myEl={botEl} onExit={()=>{setMode(null);setBotEl(null);}}/>;
+  }
   if(mode==="online") return <OnlineFlow onExit={()=>setMode(null)}/>;
   return (
     <Center>
@@ -192,9 +249,42 @@ export default function Root(){
   );
 }
 
+/* ---- หน้าจอเลือกธาตุ ---- */
+function ElementRow({value,onChange}){
+  return (
+    <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+      {ELLIST.map(el=>{ const E=ELEMENTS[el]; const on=value===el; return (
+        <button key={el} onClick={()=>onChange(el)}
+          style={{width:84,padding:"10px 6px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+            background:on?`${E.color}22`:"rgba(0,0,0,.25)", color:"#E8DCC0",
+            border:`2px solid ${on?E.color:"#3A3550"}`, display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+          <span style={{fontSize:28}}>{E.emoji}</span>
+          <span style={{fontSize:13,fontWeight:700}}>{E.name}</span>
+        </button>
+      );})}
+    </div>
+  );
+}
+function ElementPicker({title,sub,onPick,onBack}){
+  const [el,setEl]=useState("fire");
+  return (
+    <Center>
+      <div style={{fontSize:40,color:"#8E2B2B"}}>♛</div>
+      <h2 style={{margin:0}}>{title}</h2>
+      {sub && <p style={{color:"#8A8172",margin:0,fontStyle:"italic",fontSize:13}}>{sub}</p>}
+      <ElementRow value={el} onChange={setEl}/>
+      <p style={{fontSize:11,color:"#6B6355",maxWidth:300,margin:"2px 0"}}>
+        {el==="fire"?"ไฟ — บุกแรง ATK สูง":el==="wind"?"ลม — ว่องไว ATK สูง DEF ต่ำ":"ดิน — อึด DEF สูง ทนทาน"}
+      </p>
+      <button style={B1} onClick={()=>onPick(el)}>เริ่มเกม →</button>
+      {onBack && <button style={{...GH,marginTop:6}} onClick={onBack}>← กลับ</button>}
+    </Center>
+  );
+}
+
 /* ============== โหมดฝึกกับบอท (เล่นในเครื่อง ไม่แตะเซิร์ฟเวอร์) ============== */
-function LocalGame({onExit}){
-  const [s,setS]=useState(()=>initialState());
+function LocalGame({myEl,onExit}){
+  const [s,setS]=useState(()=>{ const botEl=ELLIST[Math.floor(Math.random()*ELLIST.length)]; return initialState(myEl, botEl); });
   const apply=(patch)=> setS(patch.state);
   const myTurn = s.active==="A" && !s.winner;
   useEffect(()=>{
@@ -202,13 +292,27 @@ function LocalGame({onExit}){
     const t=setTimeout(()=>{ setS(cur=> (cur.active==="B" && !cur.winner) ? botAct(cur) : cur); }, 620);
     return ()=>clearTimeout(t);
   }, [s]);
-  return <GameView s={s} seat="A" myTurn={myTurn} meName="คุณ" opName="บอท" code={null} onLeave={onExit} apply={apply}/>;
+  const botElName = ELEMENTS[s.players.B.el]?.name || "";
+  return <GameView s={s} seat="A" myTurn={myTurn} meName="คุณ" opName={`บอท (${botElName})`} code={null} onLeave={onExit} apply={apply}/>;
 }
 
 /* ============== โหมดเล่นกับเพื่อน (ออนไลน์ Supabase) ============== */
 function OnlineFlow({onExit}){
   const { ready, seat, room, error, myTurn, createRoom, joinRoom, commit, leave } = useOnlineGame();
   const [name,setName]=useState(""); const [joinCode,setJoinCode]=useState("");
+  const [myEl,setMyEl]=useState("fire");
+  const myElRef=useRef("fire"); myElRef.current=myEl;
+  const bInit=useRef(false);
+
+  // ผู้เข้าห้อง (B): สร้างเด็คตามธาตุที่เลือก (ทำครั้งเดียวหลังเข้าห้อง)
+  useEffect(()=>{
+    if(seat==="B" && room?.status==="playing" && room.state?.players?.B && !bInit.current){
+      bInit.current=true;
+      const ns=structuredClone(room.state);
+      ns.players.B=newPlayer(myElRef.current,"b");
+      commit({state:ns, turn:ns.active});
+    }
+  }, [seat, room]);
 
   if(!ready) return <Center>กำลังเชื่อมต่อ...</Center>;
 
@@ -216,8 +320,10 @@ function OnlineFlow({onExit}){
     <Center>
       <div style={{fontSize:44,color:"#8E2B2B"}}>♛</div>
       <h1 style={{letterSpacing:3,margin:0}}>เล่นกับเพื่อน</h1>
+      <p style={{color:"#8A8172",margin:0,fontSize:12}}>เลือกธาตุของคุณ</p>
+      <ElementRow value={myEl} onChange={setMyEl}/>
       <input style={I} placeholder="ชื่อของคุณ" value={name} onChange={e=>setName(e.target.value)}/>
-      <button style={B1} onClick={()=>createRoom(name, initialState())}>สร้างห้องใหม่</button>
+      <button style={B1} onClick={()=>createRoom(name, initialState(myEl, myEl))}>สร้างห้องใหม่</button>
       <div style={{color:"#6B6355",fontSize:12}}>— หรือ —</div>
       <input style={I} placeholder="รหัสห้อง (4 ตัว)" value={joinCode} maxLength={4} onChange={e=>setJoinCode(e.target.value.toUpperCase())}/>
       <button style={B2} onClick={()=>joinRoom(joinCode,name)}>เข้าห้อง</button>
@@ -351,7 +457,7 @@ function Line({title,arr,isMe,back,sel,pending,onHero,isMain,onSkill,onSwitch}){
           <div key={h.uid} style={{display:"flex",flexDirection:"column",gap:2}}>
             <button onClick={()=>onHero(isMe,back?"back":"front",h,i)}
               style={{...HERO, transform:h.rested?"rotate(90deg) scale(.82)":"none", outline:sel===h.uid?"2px solid #C8A24B":"none"}}>
-              <Art art={base.art} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+              <Art base={base} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
               <div style={{position:"absolute",top:0,left:0,right:0,background:"linear-gradient(180deg,rgba(15,11,24,.9),transparent)",fontSize:8,fontWeight:700,padding:"2px 3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 2px #000"}}>{base.name}</div>
               <div style={{position:"absolute",bottom:0,left:0,right:0,display:"flex",justifyContent:"space-around",background:"rgba(15,11,24,.92)",fontSize:10,padding:"1px 0"}}>
                 <span style={{color:"#E0894F"}}>⚔{(base.atk||0)+(h.tAtk||0)}{buffed?"*":""}</span>
@@ -386,7 +492,7 @@ function HandCard({base,playable,onFront,onBack,onAction}){
   return (
     <div style={{...HC, opacity:playable?1:.55}}>
       <div style={{position:"relative",width:"100%",height:120,borderRadius:5,overflow:"hidden",background:"#14101f"}}>
-        <Art art={base.art} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+        <Art base={base} fallback={fb} imgStyle={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
         <div style={{position:"absolute",top:2,left:2,background:"rgba(15,11,24,.85)",color:"#C8A24B",fontWeight:800,fontSize:10,borderRadius:4,padding:"1px 5px"}}>C{base.cost}</div>
       </div>
       {playable && (isHero
@@ -395,10 +501,10 @@ function HandCard({base,playable,onFront,onBack,onAction}){
     </div>
   );
 }
-function Art({art,imgStyle,fallback}){
+function Art({base,imgStyle,fallback}){
   const [broken,setBroken]=useState(false);
-  if(broken||!art) return fallback;
-  return <img src={artSrc(art)} alt="" onError={()=>setBroken(true)} style={imgStyle}/>;
+  if(broken||!base||!base.art) return fallback;
+  return <img src={artSrc(base)} alt="" onError={()=>setBroken(true)} style={imgStyle}/>;
 }
 const Center=({children})=>(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,color:"#E8DCC0",fontFamily:"Georgia,serif",background:"#0F0B18",textAlign:"center",padding:16}}>{children}</div>);
 
