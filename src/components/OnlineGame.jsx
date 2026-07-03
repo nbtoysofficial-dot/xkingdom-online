@@ -96,15 +96,39 @@ const WATER = [
   { code:"QA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
   { code:"QA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
 ];
-FIRE.forEach(c=>c.el="fire"); WIND.forEach(c=>c.el="wind"); EARTH.forEach(c=>c.el="earth"); WATER.forEach(c=>c.el="water");
+/* ============== มืด (Dark) — พิษ/สังเวย/ชุบชีวิต ============== */
+const DARK = [
+  { code:"D1a", name:"Pongpol, the Dark Merchant", r:"N", type:"hero", lvl:1, cost:2, atk:2, def:1, cri:1, count:4, art:"lv1-1", text:"Trigger: จั่ว 1 ใบ", eff:{ trigger:"draw" } },
+  { code:"D1b", name:"Sirapob, the Dark Order", r:"N", type:"hero", lvl:1, cost:3, atk:2, def:0, cri:1, count:4, art:"lv1-2", text:"DEATH: Hero เรา 1 ใบ At+2 2 เทิร์น (แมนนวล)", eff:{ manual:true } },
+  { code:"D1c", name:"Tanyarat, the Dark Elf", r:"N", type:"hero", lvl:1, cost:1, atk:2, def:0, cri:1, count:4, art:"lv1-3", text:"Skill(3): Hero 1 ติด Poison 2 เทิร์น (แมนนวล)", eff:{ manual:true } },
+  { code:"D1d", name:"Tanya, the Dark Soldier", r:"U", type:"hero", lvl:1, cost:1, atk:1, def:1, cri:1, count:4, art:"lv1-4", text:"Skill: หยุดการโจมตี (สังเวย Tanyarat) (แมนนวล)", eff:{ manual:true } },
+  { code:"D1e", name:"Korn, the Dark Cleric", r:"R", type:"hero", lvl:1, cost:1, atk:1, def:0, cri:1, count:4, art:"lv1-5", text:"ENTER: ทุกคนทิ้งการ์ดบนสุดลงสุสาน (แมนนวล)", eff:{ manual:true } },
+  { code:"D2a", name:"Phubadin, the Dark Blade", r:"N", type:"hero", lvl:2, cost:4, atk:3, def:2, cri:1, count:2, art:"lv2-1", text:"มี Hero ติด Curse → Phubadin At+2 (แมนนวล)", eff:{ manual:true } },
+  { code:"D2b", name:"Davika, the Dark Sage", r:"N", type:"hero", lvl:2, cost:4, atk:3, def:3, cri:1, count:2, art:"lv2-2", text:"Skill(1): At+2 และติด Poison (แมนนวล)", eff:{ manual:true } },
+  { code:"D2c", name:"Pemika, the Dark Archer", r:"U", type:"hero", lvl:2, cost:4, atk:3, def:3, cri:1, count:2, art:"lv2-3", text:"Trigger: จั่ว 1 ใบ", eff:{ trigger:"draw" } },
+  { code:"D2d", name:"Suchawadi, the Dark Cultist", r:"R", type:"hero", lvl:2, cost:5, atk:4, def:4, cri:0, count:2, art:"lv2-4", text:"Skill(3): ชุบ Lv.1 จากสุสาน (แมนนวล)", eff:{ manual:true } },
+  { code:"D3a", name:"Nisa, the Dark Slayer", r:"N", type:"hero", lvl:3, cost:6, atk:3, def:3, cri:1, count:2, art:"lv3-1", text:"ถ้า Mana หงายน้อยกว่าศัตรู → At+3 Cri+1 (แมนนวล)", eff:{ manual:true } },
+  { code:"D3b", name:"Sirasak, the Dark Shadow", r:"U", type:"hero", lvl:3, cost:6, atk:5, def:0, cri:1, count:2, art:"lv3-2", text:"เมื่อโจมตี At+2 จนจบเทิร์น (แมนนวล)", eff:{ manual:true } },
+  { code:"D3c", name:"Thitikorn, the Dark Prince", r:"R", type:"hero", lvl:3, cost:7, atk:5, def:4, cri:1, count:2, art:"lv3-3", text:"Skill(5)(At): ทำลาย Hero Lv<3", eff:{ skill:{ cost:5, need:"enemyLo", kind:"destroy", line:"front", label:"ทำลาย Hero Lv<3" } } },
+  { code:"DI1", name:"ตรามืด", r:"U", type:"item", cost:3, count:2, art:"item-1", text:"Dark Mastery (แมนนวล)", eff:{ manual:true } },
+  { code:"DI2", name:"มีดพิษ", r:"U", type:"item", cost:2, count:2, art:"item-2", text:"มืดที่ติด: โจมตีแล้วศัตรูติด Poison (แมนนวล)", eff:{ manual:true } },
+  { code:"DA1", name:"หยดพิษ", r:"U", type:"action", cost:1, count:2, art:"act-1", text:"Hero 1 ติด Poison (แมนนวล)", eff:{ manual:true } },
+  { code:"DA2", name:"สังเวย", r:"U", type:"action", cost:2, count:2, art:"act-2", text:"ทิ้ง 2 จั่ว 3", eff:{ action:"discardDraw" } },
+  { code:"DA3", name:"คืนชีพ", r:"U", type:"action", cost:3, count:2, art:"act-3", text:"ชุบ Hero จากสุสาน (แมนนวล)", eff:{ manual:true } },
+  { code:"DA4", name:"ม่านมืด", r:"R", type:"action", cost:3, count:2, art:"act-4", text:"ฮีล (แมนนวล)", eff:{ manual:true } },
+  { code:"DA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
+  { code:"DA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
+];
+FIRE.forEach(c=>c.el="fire"); WIND.forEach(c=>c.el="wind"); EARTH.forEach(c=>c.el="earth"); WATER.forEach(c=>c.el="water"); DARK.forEach(c=>c.el="dark");
 const ELEMENTS = {
   fire:  { name:"ไฟ",  emoji:"🔥", color:"#C6472F", cards:FIRE },
   wind:  { name:"ลม",  emoji:"🌪️", color:"#3E8E7E", cards:WIND },
   earth: { name:"ดิน", emoji:"⛰️", color:"#B08D57", cards:EARTH },
   water: { name:"น้ำ", emoji:"💧", color:"#3B6EA5", cards:WATER },
+  dark:  { name:"มืด", emoji:"🌑", color:"#7A4FA3", cards:DARK },
 };
-const ELLIST = ["fire","wind","earth","water"];
-const CARD = {}; [...FIRE,...WIND,...EARTH,...WATER].forEach(c=>{ CARD[c.code]=c; });
+const ELLIST = ["fire","wind","earth","water","dark"];
+const CARD = {}; [...FIRE,...WIND,...EARTH,...WATER,...DARK].forEach(c=>{ CARD[c.code]=c; });
 const artSrc = (base)=> base && base.art && base.el ? `/cards/${base.el}/${base.art}.jpg` : "";
 const PHASES = ["Start","Draw","Mana","Main","End"];
 const PH = { Start:"เริ่มเทิร์น", Draw:"จั่ว", Mana:"วางมานา", Main:"เมนเฟส", End:"จบเทิร์น" };
@@ -298,7 +322,7 @@ function ElementPicker({title,sub,onPick,onBack}){
       {sub && <p style={{color:"#8A8172",margin:0,fontStyle:"italic",fontSize:13}}>{sub}</p>}
       <ElementRow value={el} onChange={setEl}/>
       <p style={{fontSize:11,color:"#6B6355",maxWidth:300,margin:"2px 0"}}>
-        {el==="fire"?"ไฟ — บุกแรง ATK สูง":el==="wind"?"ลม — ว่องไว ATK สูง DEF ต่ำ":el==="earth"?"ดิน — อึด DEF สูง ทนทาน":"น้ำ — คุมเกม ฟรีส/บาลานซ์"}
+        {el==="fire"?"ไฟ — บุกแรง ATK สูง":el==="wind"?"ลม — ว่องไว ATK สูง DEF ต่ำ":el==="earth"?"ดิน — อึด DEF สูง ทนทาน":el==="water"?"น้ำ — คุมเกม ฟรีส/บาลานซ์":"มืด — พิษ/สังเวย ดุดัน"}
       </p>
       <button style={B1} onClick={()=>onPick(el)}>เริ่มเกม →</button>
       {onBack && <button style={{...GH,marginTop:6}} onClick={onBack}>← กลับ</button>}
