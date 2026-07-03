@@ -73,14 +73,38 @@ const EARTH = [
   { code:"EA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
   { code:"EA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
 ];
-FIRE.forEach(c=>c.el="fire"); WIND.forEach(c=>c.el="wind"); EARTH.forEach(c=>c.el="earth");
+/* ============== น้ำ (Water) — คุมเกม/ฟรีส/บาลานซ์ ============== */
+const WATER = [
+  { code:"Q1a", name:"ศิษย์สายน้ำ", r:"N", type:"hero", lvl:1, cost:2, atk:2, def:1, cri:1, count:4, art:"lv1-1", text:"Trigger: จั่ว 1 ใบ", eff:{ trigger:"draw" } },
+  { code:"Q1b", name:"นักเวทน้ำ", r:"N", type:"hero", lvl:1, cost:1, atk:1, def:1, cri:1, count:4, art:"lv1-2", text:"Skill(2): ตัวหน้าศัตรูติดฟรีส (แมนนวล)", eff:{ manual:true } },
+  { code:"Q1c", name:"ผู้คุมกระแส", r:"N", type:"hero", lvl:1, cost:1, atk:1, def:1, cri:1, count:4, art:"lv1-3", text:"React: ยกเลิก Action (แมนนวล)", eff:{ manual:true } },
+  { code:"Q1d", name:"นักรบคลื่น", r:"U", type:"hero", lvl:1, cost:2, atk:2, def:1, cri:1, count:4, art:"lv1-4", text:"—" },
+  { code:"Q1e", name:"จอมเวทสายชล", r:"R", type:"hero", lvl:1, cost:3, atk:2, def:1, cri:1, count:4, art:"lv1-5", text:"เข้ามา: เด้ง Hero ศัตรูกลับมือ (แมนนวล)", eff:{ manual:true } },
+  { code:"Q2a", name:"Ewarin, Aqua Dagger", r:"N", type:"hero", lvl:2, cost:4, atk:2, def:3, cri:1, count:2, art:"lv2-1", text:"BACKSTAB · Rest Hero 1 ใบ (แมนนวล)", eff:{ manual:true } },
+  { code:"Q2b", name:"ทหารสายน้ำ", r:"N", type:"hero", lvl:2, cost:4, atk:3, def:2, cri:1, count:2, art:"lv2-2", text:"—" },
+  { code:"Q2c", name:"ผู้คุมน้ำแข็ง", r:"U", type:"hero", lvl:2, cost:4, atk:2, def:3, cri:1, count:2, art:"lv2-3", text:"Skill(1): ติดฟรีส (แมนนวล)", eff:{ manual:true } },
+  { code:"Q2d", name:"จอมพลชล", r:"R", type:"hero", lvl:2, cost:5, atk:2, def:4, cri:1, count:2, art:"lv2-4", text:"React: ดึงเป้าโจมตี (แมนนวล)", eff:{ manual:true } },
+  { code:"Q3a", name:"ราชาสมุทร", r:"N", type:"hero", lvl:3, cost:6, atk:4, def:3, cri:1, count:2, art:"lv3-1", text:"Skill(2): ศัตรูตัวหน้าติดฟรีสหมด (แมนนวล)", eff:{ manual:true } },
+  { code:"Q3b", name:"เทพสายชล", r:"U", type:"hero", lvl:3, cost:6, atk:3, def:4, cri:1, count:2, art:"lv3-2", text:"เด้ง Hero ศัตรู 1 ใบกลับมือ (แมนนวล)", eff:{ manual:true } },
+  { code:"Q3c", name:"จอมมารสมุทร", r:"R", type:"hero", lvl:3, cost:7, atk:4, def:4, cri:1, count:2, art:"lv3-3", text:"Skill(4)(At): ทำลาย Hero Lv<3", eff:{ skill:{ cost:4, need:"enemyLo", kind:"destroy", line:"front", label:"ทำลาย Hero Lv<3" } } },
+  { code:"QI1", name:"ตราน้ำ", r:"U", type:"item", cost:3, count:2, art:"item-1", text:"Water Mastery (แมนนวล)", eff:{ manual:true } },
+  { code:"QI2", name:"คทาสายชล", r:"U", type:"item", cost:2, count:2, art:"item-2", text:"น้ำที่ติด: ฟรีสตอนโจมตี (แมนนวล)", eff:{ manual:true } },
+  { code:"QA1", name:"สายชลชำระ", r:"U", type:"action", cost:2, count:2, art:"act-1", text:"ทิ้ง 2 จั่ว 3", eff:{ action:"discardDraw" } },
+  { code:"QA2", name:"เกล็ดน้ำแข็ง", r:"U", type:"action", cost:1, count:2, art:"act-2", text:"Hero 1 ติดฟรีส (แมนนวล)", eff:{ manual:true } },
+  { code:"QA3", name:"คลื่นซัด", r:"U", type:"action", cost:3, count:2, art:"act-3", text:"เด้ง Hero ศัตรูกลับมือ (แมนนวล)", eff:{ manual:true } },
+  { code:"QA4", name:"ธารบำบัด", r:"R", type:"action", cost:3, count:2, art:"act-4", text:"ฮีล (แมนนวล)", eff:{ manual:true } },
+  { code:"QA5", name:"Strategic Insight", r:"-", type:"action", cost:2, count:2, art:"act-5", text:"จั่ว 2 วาง 1 ใบใต้กอง", eff:{ action:"draw2bottom1" } },
+  { code:"QA6", name:"Tactical Advance", r:"-", type:"action", cost:2, count:2, art:"act-6", text:"Hero 1 ตัว ATK+1 DEF+1 จนจบเทิร์น", eff:{ action:"buffTarget" } },
+];
+FIRE.forEach(c=>c.el="fire"); WIND.forEach(c=>c.el="wind"); EARTH.forEach(c=>c.el="earth"); WATER.forEach(c=>c.el="water");
 const ELEMENTS = {
   fire:  { name:"ไฟ",  emoji:"🔥", color:"#C6472F", cards:FIRE },
   wind:  { name:"ลม",  emoji:"🌪️", color:"#3E8E7E", cards:WIND },
   earth: { name:"ดิน", emoji:"⛰️", color:"#B08D57", cards:EARTH },
+  water: { name:"น้ำ", emoji:"💧", color:"#3B6EA5", cards:WATER },
 };
-const ELLIST = ["fire","wind","earth"];
-const CARD = {}; [...FIRE,...WIND,...EARTH].forEach(c=>{ CARD[c.code]=c; });
+const ELLIST = ["fire","wind","earth","water"];
+const CARD = {}; [...FIRE,...WIND,...EARTH,...WATER].forEach(c=>{ CARD[c.code]=c; });
 const artSrc = (base)=> base && base.art && base.el ? `/cards/${base.el}/${base.art}.jpg` : "";
 const PHASES = ["Start","Draw","Mana","Main","End"];
 const PH = { Start:"เริ่มเทิร์น", Draw:"จั่ว", Mana:"วางมานา", Main:"เมนเฟส", End:"จบเทิร์น" };
@@ -274,7 +298,7 @@ function ElementPicker({title,sub,onPick,onBack}){
       {sub && <p style={{color:"#8A8172",margin:0,fontStyle:"italic",fontSize:13}}>{sub}</p>}
       <ElementRow value={el} onChange={setEl}/>
       <p style={{fontSize:11,color:"#6B6355",maxWidth:300,margin:"2px 0"}}>
-        {el==="fire"?"ไฟ — บุกแรง ATK สูง":el==="wind"?"ลม — ว่องไว ATK สูง DEF ต่ำ":"ดิน — อึด DEF สูง ทนทาน"}
+        {el==="fire"?"ไฟ — บุกแรง ATK สูง":el==="wind"?"ลม — ว่องไว ATK สูง DEF ต่ำ":el==="earth"?"ดิน — อึด DEF สูง ทนทาน":"น้ำ — คุมเกม ฟรีส/บาลานซ์"}
       </p>
       <button style={B1} onClick={()=>onPick(el)}>เริ่มเกม →</button>
       {onBack && <button style={{...GH,marginTop:6}} onClick={onBack}>← กลับ</button>}
@@ -352,6 +376,10 @@ function OnlineFlow({onExit}){
 /* ============== กระดานเกม (ใช้ร่วมทั้ง 2 โหมด) ============== */
 function GameView({s, seat, myTurn, meName, opName, code, onLeave, apply}){
   const [sel,setSel]=useState(null); const [pending,setPending]=useState(null);
+  const [fx,setFx]=useState(null);
+  const [fxOff,setFxOff]=useState(()=>{ try{return localStorage.getItem("xk_fxoff")==="1";}catch(e){return false;} });
+  const toggleFx=()=>{ setFxOff(v=>{ const nv=!v; try{localStorage.setItem("xk_fxoff", nv?"1":"0");}catch(e){} return nv; }); };
+  const playFx=(el)=>{ if(!fxOff && el) setFx({el, key:Date.now()}); };
 
   if(s.winner){
     const iWon=s.winner===seat;
@@ -368,7 +396,7 @@ function GameView({s, seat, myTurn, meName, opName, code, onLeave, apply}){
   const canCast=(base)=> isMain && activeMana>=base.cost;
 
   const doNext=()=>{ if(!myTurn)return; setSel(null); setPending(null); act(ns=>advance(ns)); };
-  const doPlayHero=(idx,line)=>{ const base=CARD[meP.hand[idx].code]; if(!canCast(base))return; act(ns=>playHero(ns,idx,line)); };
+  const doPlayHero=(idx,line)=>{ const base=CARD[meP.hand[idx].code]; if(!canCast(base))return; if(base.type==="hero"&&base.lvl===3) playFx(base.el); act(ns=>playHero(ns,idx,line)); };
   const doPlayAction=(idx)=>{ const base=CARD[meP.hand[idx].code]; if(!canCast(base))return;
     if(base.eff?.action==="buffTarget"){ setSel(null); setPending({fromHand:idx,need:"anyHero",kind:"buffBoth",val:1,label:base.name,cost:base.cost}); return; }
     act(ns=>playActionSimple(ns,idx)); };
@@ -379,7 +407,7 @@ function GameView({s, seat, myTurn, meName, opName, code, onLeave, apply}){
 
   const heroMatches=(need,ownerIsMe,h)=> need==="anyHero"?true : need==="enemyLo"?(!ownerIsMe&&(CARD[h.code].lvl||9)<3):false;
   const onHero=(ownerIsMe,line,h,idx)=>{
-    if(pending){ if(heroMatches(pending.need,ownerIsMe,h)){ const pend=pending; setPending(null); act(ns=>resolveTarget(ns,pend,ownerIsMe,line,idx)); } return; }
+    if(pending){ if(heroMatches(pending.need,ownerIsMe,h)){ const pend=pending; setPending(null); if(pend.srcUid) playFx(meP.el); act(ns=>resolveTarget(ns,pend,ownerIsMe,line,idx)); } return; }
     if(!isMain) return;
     if(ownerIsMe){ if(line!=="front"||firstTurnLock||h.rested)return; setSel(sel===h.uid?null:h.uid); }
     else { if(!sel)return; if(line==="back"&&opP.front.length>0)return; const su=sel; setSel(null); act(ns=>attackHero(ns,su,line,idx)); }
@@ -391,8 +419,12 @@ function GameView({s, seat, myTurn, meName, opName, code, onLeave, apply}){
       <div style={HUD}>
         <span>{code?<>ห้อง <b>{code}</b></>:<b>ฝึกกับบอท</b>}</span>
         <b style={{color:myTurn?"#7ED9A0":"#C6472F"}}>{myTurn?`● ตาคุณ · ${PH[phase]}`:`○ ตา ${opName||"คู่แข่ง"}`}</b>
-        <button style={GH} onClick={onLeave}>ออก</button>
+        <span style={{display:"flex",gap:6}}>
+          <button style={GH} onClick={toggleFx} title="เปิด/ปิดเอฟเฟกต์">{fxOff?"✨̶":"✨"}</button>
+          <button style={GH} onClick={onLeave}>ออก</button>
+        </span>
       </div>
+      {fx && <FxOverlay el={fx.el} onDone={()=>setFx(null)}/>}
 
       <Board p={opP} isMe={false} name={opName||"คู่แข่ง"} sel={sel} pending={pending} onHero={onHero} onKingdom={onKingdom}/>
 
@@ -498,6 +530,18 @@ function HandCard({base,playable,onFront,onBack,onAction}){
       {playable && (isHero
         ? <div style={{display:"flex",gap:2,marginTop:3}}><button style={PB} onClick={onFront}>Front</button><button style={PB} onClick={onBack}>Back</button></div>
         : <button style={{...PB,marginTop:3}} onClick={onAction}>เล่น</button>)}
+    </div>
+  );
+}
+/* ---- เอฟเฟกต์วิดีโอเต็มจอ (≤3 วิ · แตะข้ามได้ · ไม่มีไฟล์ = ข้ามทันที) ---- */
+function FxOverlay({el,onDone}){
+  useEffect(()=>{ const t=setTimeout(onDone, 3400); return ()=>clearTimeout(t); }, []);
+  return (
+    <div onClick={onDone} style={{position:"fixed",inset:0,zIndex:9999,background:"#000",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+      <video src={`/fx/${el}.mp4`} autoPlay muted playsInline onEnded={onDone} onError={onDone}
+        style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
+      <button onClick={(e)=>{e.stopPropagation();onDone();}}
+        style={{position:"absolute",top:16,right:16,background:"rgba(0,0,0,.5)",border:"1px solid #8A8172",color:"#E8DCC0",padding:"6px 14px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>ข้าม ⏭</button>
     </div>
   );
 }
