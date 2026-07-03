@@ -251,14 +251,14 @@ function pickAttack(ns){
   const A=ns.players.A, B=ns.players.B;
   const attackers=B.front.filter(h=>!h.rested);
   if(attackers.length===0) return null;
-  // 1) หาการตีฮีโร่หน้าที่ชนะ/เสมอ (เคลียร์บล็อค)
+  // 1) ฆ่าภัยคุกคาม: ตีชนะขาด (atk>ta ไม่ตายเอง) เฉพาะเป้าที่แรง (ATK>=3) — ไม่แลกตายคู่
   for(const at of attackers){
     const atk=aOf(at);
-    let bestIdx=-1,bestTa=999;
-    A.front.forEach((t,idx)=>{ const ta=aOf(t); if(atk>=ta && ta<bestTa){bestTa=ta;bestIdx=idx;} });
+    let bestIdx=-1,bestTa=-1;
+    A.front.forEach((t,idx)=>{ const ta=aOf(t); if(atk>ta && ta>=3 && ta>bestTa){bestTa=ta;bestIdx=idx;} });
     if(bestIdx>=0) return { uid:at.uid, line:"front", idx:bestIdx };
   }
-  // 2) ไม่มีเทรดคุ้ม → บุก Kingdom ด้วยตัวแรงสุด
+  // 2) ที่เหลือ → บุก Kingdom ด้วยตัวแรงสุด (เรซให้จบ)
   const strongest=attackers.slice().sort((a,b)=>aOf(b)-aOf(a))[0];
   return { uid:strongest.uid, kingdom:true };
 }
@@ -268,11 +268,17 @@ function botAct(s){
   if(ns.phaseIdx===3){                                 // Main
     const B=ns.players.B;
     const avail=B.mana.filter(m=>!m.rested).length;
+    // 1) ลงฮีโร่แพงสุดที่จ่ายได้ (พัฒนากระดานให้เต็มที่)
     const hi=bestHeroToPlay(B.hand, avail);
-    if(hi>=0){ playHero(ns,hi,"front"); return ns; }   // ลงฮีโร่แพงสุดที่จ่ายได้
+    if(hi>=0){ playHero(ns,hi,"front"); return ns; }
+    // 2) สลับ Back→Front ให้ฮีโร่กลับมาโจมตีได้ทุกเทิร์น (จุดที่ทำให้บอทแรงขึ้นมาก)
+    const bk=B.back.find(h=>!h.rested && !h.switched);
+    if(bk){ switchLine(ns, bk.uid); return ns; }
+    // 3) โจมตี (เก็บภัยคุกคามก่อน แล้วบุก Kingdom)
     const plan=pickAttack(ns);
     if(plan){ if(plan.kingdom) attackKingdom(ns,plan.uid); else attackHero(ns,plan.uid,plan.line,plan.idx); return ns; }
-    advance(ns); return ns;                             // ไม่มีอะไรทำ → ไป End
+    // 4) ไม่มีอะไรทำ → ไป End
+    advance(ns); return ns;
   }
   advance(ns); return ns;                               // End → สลับตากลับผู้เล่น
 }
